@@ -27,6 +27,7 @@ public class Driver {
     @Column(name = "vehicle_number", unique = true)
     private String vehicleNumber;
 
-    @Builder.Default
-    private boolean available = true;
+@Enumerated(EnumType.STRING)
+@Builder.Default
+private DriverStatus status = DriverStatus.OFFLINE;
 }
