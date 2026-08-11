@@ -7,8 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class UberBackendApplication {
 
-    public static void main(String[] args) {
-
+    static {
         Dotenv dotenv = Dotenv.configure()
                 .ignoreIfMissing()
                 .load();
@@ -18,7 +17,9 @@ public class UberBackendApplication {
         );
 
         System.out.println("DB_URL: " + System.getProperty("DB_URL"));
+    }
 
+    public static void main(String[] args) {
         SpringApplication.run(UberBackendApplication.class, args);
     }
 }

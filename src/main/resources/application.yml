@@ -13,8 +13,34 @@ spring:
       hibernate:
         format_sql: true
 
+  kafka:
+    bootstrap-servers: kafka-38d2de3f-syedmustafaquadri32-7618.f.aivencloud.com:11121
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+
+    consumer:
+      group-id: driver-location-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.value.default.type: com.uber.uber_backend.dto.DriverLocationUpdate
+
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-256
+      sasl.jaas.config: >
+        org.apache.kafka.common.security.scram.ScramLoginModule required
+        username="${KAFKA_USERNAME}"
+        password="${KAFKA_PASSWORD}";
+      ssl.truststore.location: ${KAFKA_TRUSTSTORE}
+      ssl.truststore.password: changeit
+      ssl.truststore.type: JKS
+
 server:
-  port: 8080
-  error:
-    include-message: always
-    include-binding-errors: always
+  port: 8081
+
+error:
+  include-message: always
+  include-binding-errors: always
