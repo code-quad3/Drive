@@ -70,7 +70,7 @@ public class NearbyDriverService {
         return nearbyDrivers;
     }
 
-    private double calculateDistance(
+    public double calculateDistance(
             double lat1,
             double lon1,
             double lat2,

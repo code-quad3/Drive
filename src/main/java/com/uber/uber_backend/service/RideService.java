@@ -14,6 +14,9 @@ import com.uber.uber_backend.model.DriverStatus;
 import com.uber.uber_backend.repository.DriverRepository;
 import com.uber.uber_backend.repository.DriverLocationRepository;
 
+import com.uber.uber_backend.dto.FareCalculation;
+
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,17 +28,21 @@ public class RideService {
     private final RideEventProducer rideEventProducer;
     private final DriverRepository driverRepository;
     private final DriverLocationRepository driverLocationRepository;
+    private final FareService fareService;
 
     public RideService(
             RideRepository rideRepository,
             RideEventProducer rideEventProducer,
             DriverRepository driverRepository,
-            DriverLocationRepository driverLocationRepository
+            DriverLocationRepository driverLocationRepository,
+            FareService fareService
+
     ) {
         this.rideRepository = rideRepository;
         this.rideEventProducer = rideEventProducer;
         this.driverRepository = driverRepository;
         this.driverLocationRepository = driverLocationRepository;
+        this.fareService = fareService;
     }
 
     public Ride createRide(CreateRideRequest request) {
@@ -72,70 +79,33 @@ public class RideService {
 
     public Ride assignDriver(UUID rideId) {
 
-        // 1. Find ride
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
 
-        // 2. Make sure ride is still REQUESTED
         if (ride.getStatus() != RideStatus.REQUESTED) {
-            throw new RuntimeException("Ride is not in REQUESTED state");
-        }
-
-        // 3. Get all available drivers
-        List<Driver> availableDrivers =
-                driverRepository.findByStatus(DriverStatus.AVAILABLE);
-
-        if (availableDrivers.isEmpty()) {
-            throw new RuntimeException("No available drivers");
-        }
-
-        Driver nearestDriver = null;
-        double shortestDistance = Double.MAX_VALUE;
-
-        // 4. Check every available driver's location
-        for (Driver driver : availableDrivers) {
-
-            Optional<DriverLocation> location =
-                    driverLocationRepository.findByDriverId(driver.getId());
-
-            if (location.isEmpty()) {
-                continue;
-            }
-
-            // 5. Calculate distance
-            double distance = calculateDistance(
-                    ride.getPickupLatitude(),
-                    ride.getPickupLongitude(),
-                    location.get().getLatitude(),
-                    location.get().getLongitude()
+            throw new RuntimeException(
+                    "Ride is not in REQUESTED state"
             );
-
-            // 6. Keep nearest driver
-            if (distance < shortestDistance) {
-                shortestDistance = distance;
-                nearestDriver = driver;
-            }
         }
+
+        Driver nearestDriver = findNearestAvailableDriver(ride, null);
 
         if (nearestDriver == null) {
-            throw new RuntimeException("No driver location available");
+            throw new RuntimeException(
+                    "No available driver"
+            );
         }
 
-        // 7. Assign driver
         ride.setDriverId(nearestDriver.getId());
-
-        // 8. Change ride status
         ride.setStatus(RideStatus.DRIVER_ASSIGNED);
 
-        // 9. Save ride
         Ride savedRide = rideRepository.save(ride);
 
-        // 10. Publish Kafka event
         RideEvent event = new RideEvent();
 
         event.setRideId(savedRide.getId());
         event.setRiderId(savedRide.getRiderId());
-        event.setDriverId(nearestDriver.getId());
+        event.setDriverId(savedRide.getDriverId());
         event.setEvent("DRIVER_ASSIGNED");
 
         rideEventProducer.publishRideEvent(event);
@@ -288,6 +258,18 @@ public class RideService {
             );
         }
 
+        // Calculate distance and fare
+        FareCalculation calculation = fareService.calculateFare(
+                ride.getPickupLatitude(),
+                ride.getPickupLongitude(),
+                ride.getDestinationLatitude(),
+                ride.getDestinationLongitude()
+        );
+
+        // Store distance and fare
+        ride.setDistanceKm(calculation.getDistanceKm());
+        ride.setFare(calculation.getFare());
+
         // Complete ride
         ride.setStatus(RideStatus.COMPLETED);
 
@@ -357,6 +339,125 @@ public class RideService {
         rideEventProducer.publishRideEvent(event);
 
         return savedRide;
+    }
+
+    public Ride getRideById(UUID rideId) {
+
+        return rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+    }
+
+    public List<Ride> getRidesByDriver(UUID driverId) {
+
+        return rideRepository.findByDriverId(driverId);
+    }
+
+    public List<Ride> getRidesByRider(UUID riderId) {
+
+        return rideRepository.findByRiderId(riderId);
+    }
+
+    public Ride rejectRide(UUID rideId, UUID driverId) {
+
+        // 1. Find ride
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+
+        // 2. Ride must be DRIVER_ASSIGNED
+        if (ride.getStatus() != RideStatus.DRIVER_ASSIGNED) {
+            throw new RuntimeException(
+                    "Ride is not waiting for driver acceptance"
+            );
+        }
+
+        // 3. Only assigned driver can reject
+        if (!driverId.equals(ride.getDriverId())) {
+            throw new RuntimeException(
+                    "Driver is not assigned to this ride"
+            );
+        }
+
+        // 4. Find rejecting driver
+        Driver rejectingDriver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new RuntimeException("Driver not found"));
+
+        // 5. Release rejecting driver
+        rejectingDriver.setStatus(DriverStatus.AVAILABLE);
+        driverRepository.save(rejectingDriver);
+
+        // 6. Find another available driver
+        Driver newDriver = findNearestAvailableDriver(
+                ride,
+                driverId
+        );
+
+        // 7. No replacement driver
+        if (newDriver == null) {
+
+            // No replacement driver
+            ride.setDriverId(null);
+            ride.setStatus(RideStatus.REQUESTED);
+
+            return rideRepository.save(ride);
+        }
+
+        // 8. Assign new driver
+        ride.setDriverId(newDriver.getId());
+        ride.setStatus(RideStatus.DRIVER_ASSIGNED);
+
+        // 9. Save ride
+        Ride savedRide = rideRepository.save(ride);
+
+        // 10. Publish Kafka event
+        RideEvent event = new RideEvent();
+
+        event.setRideId(savedRide.getId());
+        event.setRiderId(savedRide.getRiderId());
+        event.setDriverId(newDriver.getId());
+        event.setEvent("DRIVER_REASSIGNED");
+
+        rideEventProducer.publishRideEvent(event);
+
+        return savedRide;
+    }
+
+    private Driver findNearestAvailableDriver(Ride ride, UUID excludedDriverId) {
+
+        List<Driver> availableDrivers =
+                driverRepository.findByStatus(DriverStatus.AVAILABLE);
+
+        Driver nearestDriver = null;
+        double shortestDistance = Double.MAX_VALUE;
+
+        for (Driver driver : availableDrivers) {
+
+            // Don't select the driver who rejected
+            if (excludedDriverId != null &&
+                    driver.getId().equals(excludedDriverId)) {
+                continue;
+            }
+
+            Optional<DriverLocation> location =
+                    driverLocationRepository.findByDriverId(driver.getId());
+
+            if (location.isEmpty()) {
+                continue;
+            }
+
+            double distance = calculateDistance(
+                    ride.getPickupLatitude(),
+                    ride.getPickupLongitude(),
+                    location.get().getLatitude(),
+                    location.get().getLongitude()
+            );
+
+            if (distance < shortestDistance) {
+                shortestDistance = distance;
+                nearestDriver = driver;
+            }
+        }
+
+        return nearestDriver;
     }
 
 }

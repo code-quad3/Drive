@@ -5,6 +5,7 @@ import com.uber.uber_backend.model.Ride;
 import com.uber.uber_backend.service.RideService;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -61,5 +62,33 @@ public class RideController {
 
         return rideService.cancelRide(rideId);
     }
+
+    @GetMapping("/{rideId}")
+    public Ride getRideById(@PathVariable UUID rideId) {
+
+        return rideService.getRideById(rideId);
+    }
+
+    @GetMapping("/rider/{riderId}")
+    public List<Ride> getRidesByRider(@PathVariable UUID riderId) {
+
+        return rideService.getRidesByRider(riderId);
+    }
+
+    @PostMapping("/{rideId}/reject")
+    public Ride rejectRide(
+            @PathVariable UUID rideId,
+            @RequestParam UUID driverId
+    ) {
+
+        return rideService.rejectRide(rideId, driverId);
+    }
+
+    @GetMapping("/driver/{driverId}")
+    public List<Ride> getRidesByDriver(@PathVariable UUID driverId) {
+
+        return rideService.getRidesByDriver(driverId);
+    }
+
 
 }

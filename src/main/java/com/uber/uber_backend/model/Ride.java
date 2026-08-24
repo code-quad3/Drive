@@ -1,6 +1,7 @@
 package com.uber.uber_backend.model;
 
 import jakarta.persistence.*;
+
 import java.util.UUID;
 
 @Entity
@@ -20,6 +21,9 @@ public class Ride {
 
     private double destinationLatitude;
     private double destinationLongitude;
+
+    private double distanceKm;
+    private double fare;
 
     @Enumerated(EnumType.STRING)
     private RideStatus status;
@@ -75,6 +79,22 @@ public class Ride {
 
     public void setDestinationLongitude(double destinationLongitude) {
         this.destinationLongitude = destinationLongitude;
+    }
+
+    public double getDistanceKm() {
+        return distanceKm;
+    }
+
+    public void setDistanceKm(double distanceKm) {
+        this.distanceKm = distanceKm;
+    }
+
+    public double getFare() {
+        return fare;
+    }
+
+    public void setFare(double fare) {
+        this.fare = fare;
     }
 
     public RideStatus getStatus() {
