@@ -9,19 +9,22 @@ public class NearbyDriverResponse {
     private double latitude;
     private double longitude;
     private double distance;
+    private double eta;
 
     public NearbyDriverResponse(
             UUID driverId,
             String name,
             double latitude,
             double longitude,
-            double distance) {
+            double distance,
+            double eta) {
 
         this.driverId = driverId;
         this.name = name;
         this.latitude = latitude;
         this.longitude = longitude;
         this.distance = distance;
+        this.eta = eta;
     }
 
     public UUID getDriverId() {
@@ -42,5 +45,9 @@ public class NearbyDriverResponse {
 
     public double getDistance() {
         return distance;
+    }
+
+    public double getEta() {
+        return eta;
     }
 }

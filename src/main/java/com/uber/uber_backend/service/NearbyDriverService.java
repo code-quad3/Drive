@@ -8,6 +8,9 @@ import com.uber.uber_backend.repository.DriverLocationRepository;
 import com.uber.uber_backend.repository.DriverRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.Comparator;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,13 +19,16 @@ public class NearbyDriverService {
 
     private final DriverRepository driverRepository;
     private final DriverLocationRepository driverLocationRepository;
+    private final EtaPredictionService etaPredictionService;
 
     public NearbyDriverService(
             DriverRepository driverRepository,
-            DriverLocationRepository driverLocationRepository) {
+            DriverLocationRepository driverLocationRepository,
+            EtaPredictionService etaPredictionService) {
 
         this.driverRepository = driverRepository;
         this.driverLocationRepository = driverLocationRepository;
+        this.etaPredictionService = etaPredictionService;
     }
 
     public List<NearbyDriverResponse> findNearbyDrivers(
@@ -55,17 +61,35 @@ public class NearbyDriverService {
 
             if (distance <= radius) {
 
+                LocalDateTime now = LocalDateTime.now();
+
+                int hour = now.getHour();
+                int dayOfWeek = now.getDayOfWeek().getValue() - 1;
+
+                double eta = etaPredictionService.predictEta(
+                        distance,
+                        hour,
+                        dayOfWeek
+                );
+
                 nearbyDrivers.add(
                         new NearbyDriverResponse(
                                 driver.getId(),
                                 driver.getName(),
                                 location.getLatitude(),
                                 location.getLongitude(),
-                                distance
+                                distance,
+                                eta
                         )
                 );
             }
         }
+
+        nearbyDrivers.sort(
+                Comparator.comparingDouble(
+                        NearbyDriverResponse::getEta
+                )
+        );
 
         return nearbyDrivers;
     }
