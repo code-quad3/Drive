@@ -6,7 +6,8 @@ public class EtaRequest {
     private int hour;
     private int dayOfWeek;
 
-    public EtaRequest() {}
+    public EtaRequest() {
+    }
 
     public EtaRequest(double distanceKm, int hour, int dayOfWeek) {
         this.distanceKm = distanceKm;
