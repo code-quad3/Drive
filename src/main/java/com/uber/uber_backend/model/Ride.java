@@ -22,8 +22,8 @@ public class Ride {
     private double destinationLatitude;
     private double destinationLongitude;
 
-    private double distanceKm;
-    private double fare;
+    private Double distanceKm;
+    private Double fare;
 
     @Enumerated(EnumType.STRING)
     private RideStatus status;
@@ -81,7 +81,7 @@ public class Ride {
         this.destinationLongitude = destinationLongitude;
     }
 
-    public double getDistanceKm() {
+    public Double getDistanceKm() {
         return distanceKm;
     }
 
@@ -89,7 +89,7 @@ public class Ride {
         this.distanceKm = distanceKm;
     }
 
-    public double getFare() {
+    public Double getFare() {
         return fare;
     }
 

@@ -57,6 +57,17 @@ public class RideService {
         ride.setDestinationLatitude(request.getDestinationLatitude());
         ride.setDestinationLongitude(request.getDestinationLongitude());
 
+        // Calculate distance and fare when ride is created
+        FareCalculation calculation = fareService.calculateFare(
+                request.getPickupLatitude(),
+                request.getPickupLongitude(),
+                request.getDestinationLatitude(),
+                request.getDestinationLongitude()
+        );
+
+        ride.setDistanceKm(calculation.getDistanceKm());
+        ride.setFare(calculation.getFare());
+
         ride.setStatus(RideStatus.REQUESTED);
 
         // Save to PostgreSQL
@@ -257,18 +268,6 @@ public class RideService {
                     "Driver is not currently on a trip"
             );
         }
-
-        // Calculate distance and fare
-        FareCalculation calculation = fareService.calculateFare(
-                ride.getPickupLatitude(),
-                ride.getPickupLongitude(),
-                ride.getDestinationLatitude(),
-                ride.getDestinationLongitude()
-        );
-
-        // Store distance and fare
-        ride.setDistanceKm(calculation.getDistanceKm());
-        ride.setFare(calculation.getFare());
 
         // Complete ride
         ride.setStatus(RideStatus.COMPLETED);
