@@ -1,5 +1,5 @@
 package com.uber.uber_backend.service;
-
+import org.springframework.beans.factory.annotation.Value;
 import com.uber.uber_backend.dto.EtaRequest;
 import com.uber.uber_backend.dto.EtaResponse;
 import org.springframework.stereotype.Service;
@@ -10,8 +10,8 @@ public class EtaPredictionService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private final String ML_URL =
-            "http://localhost:8000/predict-eta";
+    @Value("${ml.url}")
+    private String mlUrl;
 
     public double predictEta(
             double distanceKm,
@@ -24,7 +24,7 @@ public class EtaPredictionService {
 
         EtaResponse response =
                 restTemplate.postForObject(
-                        ML_URL,
+                        mlUrl,
                         request,
                         EtaResponse.class
                 );
